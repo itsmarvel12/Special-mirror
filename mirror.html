@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Smart Mirror 💕</title>
+  <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&family=Inter:wght@300;400&display=swap" rel="stylesheet"/>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;}
+
+    body {
+      background:#080608;
+      min-height:100vh;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      overflow:hidden;
+      font-family:'Inter',sans-serif;
+      position:relative;
+    }
+
+    /* ── Floating particles ── */
+    .particle {
+      position:fixed;
+      pointer-events:none;
+      animation: floatUp linear infinite;
+      opacity:0;
+      user-select:none;
+      z-index:1;
+    }
+    @keyframes floatUp {
+      0%   { transform:translateY(0) scale(0.8) rotate(0deg); opacity:0.8; }
+      100% { transform:translateY(-110vh) scale(1.2) rotate(20deg); opacity:0; }
+    }
+
+    /* ── START SCREEN ── */
+    #start-screen {
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      gap:26px;
+      z-index:10;
+      text-align:center;
+      padding:20px;
+    }
+
+    .headline {
+      font-family:'Dancing Script',cursive;
+      font-size:2rem;
+      color:#ff6fa8;
+      text-shadow: 0 0 24px rgba(255,111,168,0.6), 0 0 60px rgba(255,111,168,0.2);
+      letter-spacing:1px;
+    }
+
+    /* ── Mirror PILL ── */
+    #mirror-btn {
+      position:relative;
+      width:230px;
+      height:80px;
+      border-radius:50px;
+      overflow:hidden;
+      cursor:pointer;
+      border:2px solid rgba(255,150,200,0.35);
+      background:rgba(30,15,25,0.7);
+      backdrop-filter:blur(12px);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      transition:transform 0.25s, box-shadow 0.3s;
+      box-shadow:
+        0 0 30px rgba(255,111,168,0.25),
+        inset 0 0 20px rgba(0,0,0,0.4);
+    }
+    #mirror-btn:hover {
+      transform:scale(1.04);
+      box-shadow:0 0 45px rgba(255,111,168,0.5), inset 0 0 20px rgba(0,0,0,0.4);
+    }
+    #mirror-btn:active { transform:scale(0.98); }
+
+    /* Live preview inside pill */
+    #preview-video {
+      position:absolute;
+      top:0;left:0;
+      width:100%;height:100%;
+      object-fit:cover;
+      transform:scaleX(-1);
+      opacity:0;
+      transition:opacity 0.8s ease;
+      border-radius:50px;
+    }
+    #preview-video.loaded { opacity:1; }
+
+    /* Frosted overlay on pill so "Mirror" text readable */
+    #pill-overlay {
+      position:absolute;
+      top:0;left:0;right:0;bottom:0;
+      background:rgba(0,0,0,0.28);
+      backdrop-filter:blur(1px);
+      z-index:1;
+      border-radius:50px;
+      transition:background 0.5s;
+    }
+    /* when camera loaded, reduce overlay so face visible */
+    #pill-overlay.camera-on {
+      background:rgba(0,0,0,0.12);
+    }
+
+    #mirror-label {
+      position:relative;
+      z-index:2;
+      font-family:'Dancing Script',cursive;
+      font-size:1.7rem;
+      color:#fff;
+      text-shadow:0 2px 16px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.8);
+      pointer-events:none;
+      letter-spacing:1px;
+      display:flex;
+      align-items:center;
+      gap:6px;
+    }
+
+    /* camera loading spinner inside pill */
+    #pill-loader {
+      position:absolute;
+      z-index:3;
+      bottom:10px; right:14px;
+      width:10px; height:10px;
+      border:2px solid rgba(255,255,255,0.2);
+      border-top-color:#ff9ecb;
+      border-radius:50%;
+      animation:spin 0.8s linear infinite;
+      display:block;
+    }
+    @keyframes spin { to{transform:rotate(360deg);} }
+    #pill-loader.hidden { display:none; }
+
+    /* ── Ring Light btn ── */
+    #ringlight-btn {
+      width:180px; height:48px;
+      border-radius:50px;
+      border:1px solid rgba(255,255,255,0.18);
+      background:rgba(18,12,18,0.75);
+      color:#f5e6a3;
+      font-size:0.88rem;
+      letter-spacing:1.5px;
+      cursor:pointer;
+      display:flex; align-items:center; justify-content:center; gap:8px;
+      transition:all 0.3s;
+      backdrop-filter:blur(8px);
+      font-family:'Inter',sans-serif;
+    }
+    #ringlight-btn.active {
+      background:rgba(245,230,163,0.1);
+      border-color:rgba(245,230,163,0.55);
+      box-shadow:0 0 20px rgba(245,230,163,0.3);
+    }
+
+    .tap-hint {
+      font-family:'Dancing Script',cursive;
+      font-size:1.15rem;
+      color:#ff9ecb;
+      opacity:0.75;
+    }
+
+    /* ── MIRROR FULLSCREEN ── */
+    #mirror-screen {
+      display:none;
+      position:fixed;
+      top:0;left:0;
+      width:100vw; height:100vh;
+      background:#000;
+      z-index:200;
+    }
+
+    #camera-video {
+      width:100%; height:100%;
+      object-fit:cover;
+      transform:scaleX(-1);
+      display:block;
+    }
+
+    /* Ring light glow */
+    #ring-glow {
+      position:absolute;
+      top:0;left:0;right:0;bottom:0;
+      pointer-events:none;
+      z-index:5;
+      transition:box-shadow 0.7s ease, opacity 0.7s;
+      opacity:0;
+    }
+    #ring-glow.on {
+      opacity:1;
+      box-shadow:
+        inset 0 0 80px 30px rgba(255,190,220,0.22),
+        inset 0 0 160px 60px rgba(255,150,200,0.12),
+        0 0 60px 20px rgba(255,180,220,0.15);
+    }
+
+    /* HUD */
+    #mirror-hud {
+      position:absolute;
+      top:0;left:0;right:0;bottom:0;
+      z-index:10;
+      pointer-events:none;
+    }
+
+    /* Compliment — only when face detected */
+    #compliment-wrap {
+      position:absolute;
+      bottom:88px; left:0; right:0;
+      display:flex; justify-content:center;
+      opacity:0;
+      transition:opacity 0.9s ease;
+      pointer-events:none;
+    }
+    #compliment-wrap.visible { opacity:1; }
+
+    #compliment-box {
+      font-family:'Dancing Script',cursive;
+      font-size:1.45rem;
+      color:#ffb3d9;
+      text-shadow:0 0 22px rgba(255,100,170,0.75), 0 0 50px rgba(255,100,170,0.3);
+      background:rgba(0,0,0,0.28);
+      padding:10px 30px;
+      border-radius:40px;
+      border:1px solid rgba(255,150,200,0.2);
+      backdrop-filter:blur(8px);
+      max-width:85%;
+      text-align:center;
+    }
+    @keyframes popIn {
+      0%   { transform:scale(0.88) translateY(8px); opacity:0; }
+      60%  { transform:scale(1.03) translateY(-2px); }
+      100% { transform:scale(1) translateY(0); opacity:1; }
+    }
+    .pop-in { animation:popIn 0.55s ease forwards; }
+
+    /* Status badges */
+    #status-wrap {
+      position:absolute;
+      top:18px; right:18px;
+      display:flex; flex-direction:column; gap:8px; align-items:flex-end;
+    }
+    .s-badge {
+      font-size:0.68rem; letter-spacing:1.5px;
+      padding:5px 13px; border-radius:20px;
+      background:rgba(0,0,0,0.42);
+      border:1px solid rgba(255,255,255,0.1);
+      backdrop-filter:blur(6px);
+      color:#999;
+      display:flex; align-items:center; gap:6px;
+    }
+    .s-dot{width:6px;height:6px;border-radius:50%;background:#444;}
+    .s-dot.on {background:#4caf50;box-shadow:0 0 6px #4caf50;}
+    .s-dot.warn{background:#ff9800;}
+
+    /* Close */
+    #close-mirror {
+      pointer-events:all;
+      position:absolute;
+      top:18px; left:18px;
+      background:rgba(0,0,0,0.42);
+      border:1px solid rgba(255,255,255,0.15);
+      color:#aaa; padding:7px 16px;
+      font-size:0.7rem; letter-spacing:2px;
+      cursor:pointer; border-radius:20px;
+      backdrop-filter:blur(6px);
+      transition:all 0.2s;
+      font-family:'Inter',sans-serif;
+    }
+    #close-mirror:hover{color:#fff;border-color:#fff;}
+
+    /* Ring toggle inside mirror */
+    #rl-toggle {
+      pointer-events:all;
+      position:absolute; bottom:24px; left:50%; transform:translateX(-50%);
+      background:rgba(0,0,0,0.42);
+      border:1px solid rgba(245,230,163,0.22);
+      color:#f5e6a3; padding:8px 26px;
+      font-size:0.72rem; letter-spacing:2px;
+      cursor:pointer; border-radius:30px;
+      backdrop-filter:blur(8px); transition:all 0.3s;
+      font-family:'Inter',sans-serif;
+    }
+    #rl-toggle.active{
+      background:rgba(245,230,163,0.1);
+      border-color:rgba(245,230,163,0.6);
+      box-shadow:0 0 18px rgba(245,230,163,0.28);
+    }
+
+    /* permission denied notice */
+    #no-camera {
+      position:absolute; z-index:3;
+      font-size:0.75rem; color:rgba(255,255,255,0.35);
+      letter-spacing:1px; bottom:12px;
+      display:none;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══ START SCREEN ══ -->
+<div id="start-screen">
+  <div class="headline">look who's beautiful today&nbsp;✨</div>
+
+  <div id="mirror-btn" onclick="openMirror()">
+    <video id="preview-video" autoplay playsinline muted></video>
+    <div id="pill-overlay"></div>
+    <span id="mirror-label">Mirror 🪞</span>
+    <div id="pill-loader"></div>
+  </div>
+
+  <div id="no-camera">allow camera to preview ✦</div>
+
+  <button id="ringlight-btn" onclick="toggleRingLightStart()">💡&nbsp; Ring Light</button>
+
+  <div class="tap-hint">tap for a surprise&nbsp;💕</div>
+</div>
+
+<!-- ══ MIRROR FULLSCREEN ══ -->
+<div id="mirror-screen">
+  <video id="camera-video" autoplay playsinline muted></video>
+  <div id="ring-glow"></div>
+
+  <div id="mirror-hud">
+    <button id="close-mirror" onclick="closeMirror()">✕ Close</button>
+
+    <div id="status-wrap">
+      <div class="s-badge"><div class="s-dot" id="face-dot"></div><span id="face-txt">Detecting...</span></div>
+      <div class="s-badge"><div class="s-dot" id="light-dot"></div><span id="light-txt">Checking light</span></div>
+    </div>
+
+    <div id="compliment-wrap">
+      <div id="compliment-box"></div>
+    </div>
+
+    <button id="rl-toggle" onclick="toggleRingLightMirror()">💡&nbsp;RING LIGHT</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/face-api.js/0.22.2/face-api.min.js"></script>
+<script>
+// ── State ─────────────────────────────────────────────
+let previewStream = null;
+let fullStream    = null;
+let ringLightOn   = false;
+let autoRingOn    = false;
+let faceVisible   = false;
+let modelsLoaded  = false;
+let lastIdx       = -1;
+
+let faceTimer = null, lightTimer = null, complimentTimer = null;
+
+// ── Compliments ───────────────────────────────────────
+const COMPLIMENTS = [
+  '✨ look who\'s beautiful today',
+  '💖 seriously, you\'re glowing',
+  '🌸 prettiest person in the room',
+  '💫 that smile could light up the world',
+  '👑 royally gorgeous as always',
+  '🦋 you were born to shine like this',
+  '💎 even the mirror can\'t stop staring',
+  '🌟 you\'re giving main character energy',
+  '🌹 effortlessly beautiful',
+  '💝 the world is lucky to see this face',
+  '✨ you radiate warmth & beauty',
+  '🔥 absolutely stunning today',
+  '🫶 that face deserves to be adored',
+  '⭐ you make everything look good',
+];
+
+// ── Floating particles ─────────────────────────────────
+const PTCL = ['💕','✨','🌸','💖','⭐','💫','🌟','💗','🩷'];
+(function spawnParticles(){
+  for(let i=0;i<22;i++){
+    const el=document.createElement('div');
+    el.className='particle';
+    el.textContent=PTCL[Math.floor(Math.random()*PTCL.length)];
+    el.style.cssText=`
+      left:${Math.random()*100}vw;
+      bottom:-30px;
+      font-size:${0.6+Math.random()*0.9}rem;
+      animation-duration:${6+Math.random()*9}s;
+      animation-delay:${Math.random()*8}s;
+    `;
+    document.body.appendChild(el);
+  }
+})();
+
+// ── Start preview in pill AS SOON AS PAGE LOADS ───────
+window.addEventListener('load', async ()=>{
+  try {
+    previewStream = await navigator.mediaDevices.getUserMedia({
+      video:{ facingMode:'user', width:{ideal:640}, height:{ideal:360} },
+      audio:false
+    });
+    const pv = document.getElementById('preview-video');
+    pv.srcObject = previewStream;
+    pv.onloadedmetadata = ()=>{
+      pv.play();
+      pv.classList.add('loaded');                       // fade in
+      document.getElementById('pill-overlay').classList.add('camera-on'); // reduce frost
+      document.getElementById('pill-loader').classList.add('hidden');
+      document.getElementById('mirror-label').style.display = 'none'; // hide text, face visible
+    };
+  } catch(e){
+    // Permission denied — show pill text, show hint
+    document.getElementById('pill-loader').classList.add('hidden');
+    document.getElementById('no-camera').style.display = 'block';
+    console.warn('Preview camera denied:', e);
+  }
+});
+
+// ── Ring Light (start screen toggle) ──────────────────
+function toggleRingLightStart(){
+  ringLightOn=!ringLightOn;
+  document.getElementById('ringlight-btn').classList.toggle('active',ringLightOn);
+}
+
+// ── Open full mirror ───────────────────────────────────
+async function openMirror(){
+  // Stop preview stream
+  if(previewStream) previewStream.getTracks().forEach(t=>t.stop());
+
+  try {
+    fullStream = await navigator.mediaDevices.getUserMedia({
+      video:{ facingMode:'user', width:{ideal:1280}, height:{ideal:720} },
+      audio:false
+    });
+    const vid = document.getElementById('camera-video');
+    vid.srcObject = fullStream;
+
+    document.getElementById('start-screen').style.display = 'none';
+    document.getElementById('mirror-screen').style.display= 'block';
+
+    applyRingLight(ringLightOn);
+
+    lightTimer     = setInterval(detectLight, 900);
+    complimentTimer= setInterval(cycleCompliment, 5000);
+
+    await loadFaceModels();
+    faceTimer = setInterval(detectFaces, 1100);
+
+  } catch(err){
+    alert('Camera permission needed 📷\nPlease allow camera access.');
+  }
+}
+
+// ── Close mirror ───────────────────────────────────────
+function closeMirror(){
+  if(fullStream) fullStream.getTracks().forEach(t=>t.stop());
+  clearInterval(faceTimer);
+  clearInterval(lightTimer);
+  clearInterval(complimentTimer);
+  faceVisible=false; autoRingOn=false;
+  hideCompliment();
+
+  document.getElementById('mirror-screen').style.display='none';
+  document.getElementById('start-screen').style.display ='flex';
+
+  // Restart preview
+  startPreviewAgain();
+}
+
+async function startPreviewAgain(){
+  try {
+    previewStream = await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:'user',width:{ideal:640},height:{ideal:360}},
+      audio:false
+    });
+    const pv=document.getElementById('preview-video');
+    pv.srcObject=previewStream;
+    pv.onloadedmetadata=()=>{ pv.play(); pv.classList.add('loaded'); };
+    document.getElementById('mirror-label').style.display='none';
+    document.getElementById('pill-overlay').classList.add('camera-on');
+  } catch(e){}
+}
+
+// ── Ring Light ─────────────────────────────────────────
+function applyRingLight(on){
+  ringLightOn=on;
+  document.getElementById('ring-glow').classList.toggle('on',on);
+  document.getElementById('rl-toggle').classList.toggle('active',on);
+}
+function toggleRingLightMirror(){
+  autoRingOn=false; // manual override
+  applyRingLight(!ringLightOn);
+}
+
+// ── Light Detection ────────────────────────────────────
+function detectLight(){
+  const vid=document.getElementById('camera-video');
+  if(vid.readyState<2) return;
+  const off=document.createElement('canvas');
+  off.width=64;off.height=64;
+  const oc=off.getContext('2d');
+  oc.drawImage(vid,0,0,64,64);
+  const d=oc.getImageData(0,0,64,64).data;
+  let t=0;
+  for(let i=0;i<d.length;i+=4) t+=(d[i]*0.299+d[i+1]*0.587+d[i+2]*0.114);
+  const pct=Math.round((t/(64*64))/255*100);
+
+  const dot=document.getElementById('light-dot');
+  const txt=document.getElementById('light-txt');
+
+  if(pct>55){
+    dot.className='s-dot on'; txt.textContent='Good light';
+    if(autoRingOn){ autoRingOn=false; applyRingLight(false); }
+  } else if(pct>25){
+    dot.className='s-dot warn'; txt.textContent='Normal light';
+  } else {
+    dot.className='s-dot warn'; txt.textContent='Low light 💡 auto';
+    if(!ringLightOn){ autoRingOn=true; applyRingLight(true); }
+  }
+}
+
+// ── Face Detection ─────────────────────────────────────
+async function loadFaceModels(){
+  try {
+    await faceapi.nets.tinyFaceDetector.loadFromUri(
+      'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model'
+    );
+    modelsLoaded=true;
+  } catch(e){ console.warn('Face model failed',e); }
+}
+
+async function detectFaces(){
+  if(!modelsLoaded) return;
+  const vid=document.getElementById('camera-video');
+  if(vid.readyState<2) return;
+  try {
+    const det=await faceapi.detectAllFaces(
+      vid,new faceapi.TinyFaceDetectorOptions({inputSize:224,scoreThreshold:0.45})
+    );
+    const n=det.length;
+    const dot=document.getElementById('face-dot');
+    const txt=document.getElementById('face-txt');
+    if(n>0){
+      dot.className='s-dot on';
+      txt.textContent=n===1?'Face detected':`${n} faces`;
+      if(!faceVisible){ faceVisible=true; showCompliment(); }
+    } else {
+      dot.className='s-dot'; txt.textContent='No face';
+      if(faceVisible){ faceVisible=false; hideCompliment(); }
+    }
+  } catch(e){}
+}
+
+// ── Compliments ────────────────────────────────────────
+function showCompliment(){
+  pickCompliment();
+  document.getElementById('compliment-wrap').classList.add('visible');
+}
+function hideCompliment(){
+  document.getElementById('compliment-wrap').classList.remove('visible');
+}
+function pickCompliment(){
+  let idx;
+  do { idx=Math.floor(Math.random()*COMPLIMENTS.length); } while(idx===lastIdx);
+  lastIdx=idx;
+  const box=document.getElementById('compliment-box');
+  box.textContent=COMPLIMENTS[idx];
+  box.classList.remove('pop-in');
+  void box.offsetWidth;
+  box.classList.add('pop-in');
+}
+function cycleCompliment(){ if(faceVisible) pickCompliment(); }
+</script>
+</body>
+</html>
