@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Smart Mirror 💕</title>
+  <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&family=Inter:wght@300;400&display=swap" rel="stylesheet"/>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;}
+
+    body {
+      background:#060406;
+      min-height:100vh;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      overflow:hidden;
+      font-family:'Inter',sans-serif;
+      position:relative;
+    }
+
+    /* ── Particles ── */
+    .particle{
+      position:fixed;pointer-events:none;
+      animation:floatUp linear infinite;
+      opacity:0;user-select:none;z-index:1;
+    }
+    @keyframes floatUp{
+      0%  {transform:translateY(0) scale(0.8);opacity:0.85;}
+      100%{transform:translateY(-110vh) scale(1.2);opacity:0;}
+    }
+
+    /* ══ START SCREEN ══ */
+    #start-screen{
+      display:flex;flex-direction:column;
+      align-items:center;gap:24px;
+      z-index:10;text-align:center;padding:20px;
+    }
+
+    .headline{
+      font-family:'Dancing Script',cursive;
+      font-size:2rem;color:#ff6fa8;
+      text-shadow:0 0 24px rgba(255,111,168,0.7),0 0 60px rgba(255,111,168,0.2);
+    }
+
+    /* ── PILL with SS1-style border ── */
+    #mirror-btn{
+      position:relative;
+      width:240px;height:84px;
+      border-radius:50px;
+      overflow:hidden;
+      cursor:pointer;
+      /* SS1 style - soft rose/pink glow border */
+      border:2px solid rgba(255,130,160,0.5);
+      background:rgba(25,10,20,0.6);
+      backdrop-filter:blur(12px);
+      display:flex;align-items:center;justify-content:center;
+      box-shadow:
+        0 0 0 1px rgba(255,100,140,0.2),
+        0 0 20px 4px rgba(255,100,140,0.35),
+        0 0 50px 10px rgba(200,60,100,0.2),
+        inset 0 0 20px rgba(0,0,0,0.5);
+      transition:transform 0.2s,box-shadow 0.3s;
+    }
+    #mirror-btn:active{transform:scale(0.97);}
+
+    #preview-video{
+      position:absolute;top:0;left:0;width:100%;height:100%;
+      object-fit:cover;transform:scaleX(-1);
+      opacity:0;transition:opacity 0.8s ease;
+    }
+    #preview-video.show{opacity:1;}
+
+    #pill-frost{
+      position:absolute;top:0;left:0;right:0;bottom:0;
+      background:rgba(0,0,0,0.32);backdrop-filter:blur(3px);z-index:1;
+      transition:all 0.6s;
+    }
+    #pill-frost.clear{background:rgba(0,0,0,0.08);backdrop-filter:blur(0.5px);}
+
+    #mirror-label{
+      position:relative;z-index:2;
+      font-family:'Dancing Script',cursive;
+      font-size:1.7rem;color:#fff;
+      text-shadow:0 2px 16px rgba(0,0,0,0.95);
+      pointer-events:none;
+    }
+
+    /* Ring Light btn */
+    #ringlight-btn{
+      width:175px;height:46px;border-radius:50px;
+      border:1px solid rgba(255,255,255,0.15);
+      background:rgba(15,10,15,0.8);
+      color:#f5e6a3;font-size:0.87rem;letter-spacing:1.5px;
+      cursor:pointer;display:flex;align-items:center;
+      justify-content:center;gap:8px;
+      transition:all 0.3s;backdrop-filter:blur(8px);
+      font-family:'Inter',sans-serif;
+    }
+    #ringlight-btn.active{
+      background:rgba(245,230,163,0.1);
+      border-color:rgba(245,230,163,0.6);
+      box-shadow:0 0 24px rgba(245,230,163,0.35);
+    }
+
+    .tap-hint{
+      font-family:'Dancing Script',cursive;
+      font-size:1.1rem;color:#ff9ecb;opacity:0.7;
+    }
+
+    /* ══ MIRROR FULLSCREEN ══ */
+    #mirror-screen{
+      display:none;position:fixed;
+      top:0;left:0;width:100vw;height:100vh;
+      background:#000;z-index:200;
+    }
+
+    #camera-video{
+      width:100%;height:100%;
+      object-fit:cover;transform:scaleX(-1);display:block;
+    }
+
+    /* ── SS1 STYLE BORDER: soft glowing rose rounded rect ── */
+    #mirror-border{
+      position:absolute;
+      top:0;left:0;right:0;bottom:0;
+      pointer-events:none;z-index:6;
+      border-radius:22px;
+      /* Soft pink/rose glowing border like SS1 */
+      box-shadow:
+        inset 0 0 0 3px rgba(220,80,120,0.6),
+        inset 0 0 0 5px rgba(180,50,90,0.3),
+        inset 0 0 30px 6px rgba(200,60,100,0.15),
+        0 0 30px 8px rgba(200,60,100,0.25),
+        0 0 60px 16px rgba(180,40,80,0.15);
+      transition:opacity 0.4s;
+    }
+
+    /* ── SS2 RING LIGHT: warm white-golden glow from edges ── */
+    #ring-light-effect{
+      position:absolute;
+      top:0;left:0;right:0;bottom:0;
+      pointer-events:none;z-index:7;
+      opacity:0;
+      transition:opacity 0.6s ease;
+      /* Warm bulb-like glow from all 4 sides like SS2 */
+      background:
+        linear-gradient(to bottom, rgba(255,240,200,0.22) 0%, transparent 18%),
+        linear-gradient(to top,    rgba(255,240,200,0.22) 0%, transparent 18%),
+        linear-gradient(to right,  rgba(255,240,200,0.22) 0%, transparent 18%),
+        linear-gradient(to left,   rgba(255,240,200,0.22) 0%, transparent 18%);
+      box-shadow:
+        /* Top glow */
+        inset 0 6px 0 3px rgba(255,255,255,0.9),
+        inset 0 6px 40px 8px rgba(255,230,180,0.5),
+        inset 0 6px 80px 20px rgba(255,210,160,0.25),
+        /* Bottom */
+        inset 0 -6px 0 3px rgba(255,255,255,0.9),
+        inset 0 -6px 40px 8px rgba(255,230,180,0.5),
+        inset 0 -6px 80px 20px rgba(255,210,160,0.25),
+        /* Left */
+        inset 6px 0 0 3px rgba(255,255,255,0.9),
+        inset 6px 0 40px 8px rgba(255,230,180,0.5),
+        /* Right */
+        inset -6px 0 0 3px rgba(255,255,255,0.9),
+        inset -6px 0 40px 8px rgba(255,230,180,0.5),
+        /* Outer ambient */
+        0 0 60px 20px rgba(255,220,160,0.2),
+        0 0 120px 40px rgba(255,200,140,0.1);
+    }
+    #ring-light-effect.on{opacity:1;}
+
+    /* HUD */
+    #mirror-hud{
+      position:absolute;top:0;left:0;right:0;bottom:0;
+      z-index:10;pointer-events:none;
+    }
+
+    /* ── COMPLIMENT ── */
+    #compliment-wrap{
+      position:absolute;
+      bottom:85px;left:0;right:0;
+      display:flex;justify-content:center;
+      opacity:0;transition:opacity 1s ease;
+      pointer-events:none;
+    }
+    #compliment-wrap.visible{opacity:1;}
+
+    #compliment-box{
+      font-family:'Dancing Script',cursive;
+      font-size:1.45rem;
+      color:#ffb3d9;
+      text-shadow:
+        0 0 20px rgba(255,100,170,0.95),
+        0 0 40px rgba(255,80,150,0.5),
+        0 0 80px rgba(255,60,130,0.2);
+      background:rgba(0,0,0,0.28);
+      padding:12px 30px;border-radius:40px;
+      border:1px solid rgba(255,140,190,0.2);
+      backdrop-filter:blur(10px);
+      max-width:88%;text-align:center;
+      line-height:1.4;
+    }
+    @keyframes popIn{
+      0%  {transform:scale(0.82) translateY(12px);opacity:0;}
+      65% {transform:scale(1.05) translateY(-3px);}
+      100%{transform:scale(1) translateY(0);opacity:1;}
+    }
+    .pop-in{animation:popIn 0.65s ease forwards;}
+
+    /* Status badges */
+    #status-wrap{
+      position:absolute;top:16px;right:16px;
+      display:flex;flex-direction:column;gap:7px;align-items:flex-end;
+    }
+    .s-badge{
+      font-size:0.66rem;letter-spacing:1.5px;
+      padding:5px 12px;border-radius:20px;
+      background:rgba(0,0,0,0.5);
+      border:1px solid rgba(255,255,255,0.08);
+      backdrop-filter:blur(8px);color:#888;
+      display:flex;align-items:center;gap:6px;
+    }
+    .s-dot{width:6px;height:6px;border-radius:50%;background:#333;}
+    .s-dot.on{background:#ff80ab;box-shadow:0 0 6px #ff80ab;}
+    .s-dot.ok{background:#4caf50;box-shadow:0 0 6px #4caf50;}
+    .s-dot.warn{background:#ff9800;box-shadow:0 0 5px #ff9800;}
+
+    #close-mirror{
+      pointer-events:all;
+      position:absolute;top:16px;left:16px;
+      background:rgba(0,0,0,0.5);
+      border:1px solid rgba(255,255,255,0.12);
+      color:#bbb;padding:7px 15px;
+      font-size:0.68rem;letter-spacing:2px;
+      cursor:pointer;border-radius:20px;
+      backdrop-filter:blur(8px);transition:all 0.2s;
+      font-family:'Inter',sans-serif;
+    }
+    #close-mirror:hover{color:#fff;border-color:#fff;}
+
+    #rl-toggle{
+      pointer-events:all;
+      position:absolute;bottom:22px;left:50%;transform:translateX(-50%);
+      background:rgba(0,0,0,0.5);
+      border:1px solid rgba(245,230,163,0.25);
+      color:#f5e6a3;padding:10px 26px;
+      font-size:0.7rem;letter-spacing:2px;
+      cursor:pointer;border-radius:30px;
+      backdrop-filter:blur(8px);transition:all 0.3s;
+      font-family:'Inter',sans-serif;white-space:nowrap;
+    }
+    #rl-toggle.active{
+      background:rgba(245,230,163,0.1);
+      border-color:rgba(245,230,163,0.75);
+      box-shadow:0 0 22px rgba(245,230,163,0.4);
+      color:#fff9c4;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══ START SCREEN ══ -->
+<div id="start-screen">
+  <div class="headline">look who's beautiful today&nbsp;✨</div>
+
+  <div id="mirror-btn" onclick="openMirror()">
+    <video id="preview-video" autoplay playsinline muted></video>
+    <div id="pill-frost"></div>
+    <span id="mirror-label">Mirror 🪞</span>
+  </div>
+
+  <button id="ringlight-btn" onclick="toggleRLStart()">💡&nbsp; Ring Light</button>
+  <div class="tap-hint">tap into the mirror&nbsp;💕</div>
+</div>
+
+<!-- ══ MIRROR FULLSCREEN ══ -->
+<div id="mirror-screen">
+  <video id="camera-video" autoplay playsinline muted></video>
+  <div id="mirror-border"></div>
+  <div id="ring-light-effect"></div>
+
+  <div id="mirror-hud">
+    <button id="close-mirror" onclick="closeMirror()">✕ Close</button>
+
+    <div id="status-wrap">
+      <div class="s-badge">
+        <div class="s-dot" id="person-dot"></div>
+        <span id="person-txt">Waiting...</span>
+      </div>
+      <div class="s-badge">
+        <div class="s-dot" id="light-dot"></div>
+        <span id="light-txt">Checking...</span>
+      </div>
+    </div>
+
+    <div id="compliment-wrap">
+      <div id="compliment-box"></div>
+    </div>
+
+    <button id="rl-toggle" onclick="toggleRLMirror()">💡&nbsp; RING LIGHT</button>
+  </div>
+</div>
+
+<script>
+let previewStream=null, fullStream=null;
+let ringOn=false, autoRing=false;
+let personPresent=false, lastIdx=-1;
+let lightTimer=null, complTimer=null, presenceTimer=null;
+let prevPixels=null;
+
+// ── Girl compliments (lots!) ──────────────────────────
+const COMPLIMENTS = [
+  '✨ look who\'s beautiful today',
+  '💖 you genuinely take my breath away',
+  '🌸 prettiest girl in every room',
+  '💫 that smile could end wars, honestly',
+  '👑 a queen who doesn\'t even need a crown',
+  '🦋 you were made to be adored',
+  '💎 rare, precious & absolutely stunning',
+  '🌟 main character energy, always',
+  '🌹 effortlessly, maddeningly beautiful',
+  '💝 whoever gets to see this face is so lucky',
+  '🔥 literally the most attractive person I\'ve seen',
+  '🫶 your beauty is the kind that stays with people',
+  '⭐ I don\'t think you know how gorgeous you are',
+  '🩷 softest smile, strongest heart',
+  '✨ you look like a dream someone\'s afraid to wake up from',
+  '🌙 dark room gets brighter when you\'re in it',
+  '💗 everything about you is just so beautiful',
+  '🌺 the kind of pretty that\'s impossible to forget',
+  '💓 your eyes hold entire galaxies, no joke',
+  '🎀 cute is an understatement for you',
+  '🌷 you bloom wherever you go',
+  '✨ honestly? unfairly pretty',
+  '💞 you make hearts skip without even trying',
+  '🌟 looking at you feels like looking at art',
+  '🩷 your presence alone makes everything better',
+  '💖 the mirror is lucky you looked today',
+  '🫧 delicate, soft, and so so beautiful',
+  '🌸 you\'re the kind of girl people write songs about',
+  '💘 anyone would fall a little in love seeing this face',
+  '✨ genuinely, you\'re stunning every single time',
+];
+
+// ── Particles ─────────────────────────────────────────
+const PTCL=['💕','✨','🌸','💖','⭐','💫','🌟','💗','🩷','🌺','🎀'];
+(function(){
+  for(let i=0;i<24;i++){
+    const el=document.createElement('div');
+    el.className='particle';
+    el.textContent=PTCL[Math.floor(Math.random()*PTCL.length)];
+    el.style.cssText=`left:${Math.random()*100}vw;bottom:-30px;font-size:${0.55+Math.random()*0.85}rem;animation-duration:${6+Math.random()*10}s;animation-delay:${Math.random()*8}s;`;
+    document.body.appendChild(el);
+  }
+})();
+
+// ── Preview on load ───────────────────────────────────
+window.addEventListener('load', async ()=>{
+  try{
+    previewStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'},audio:false});
+    const pv=document.getElementById('preview-video');
+    pv.srcObject=previewStream;
+    await pv.play();
+    pv.classList.add('show');
+    document.getElementById('pill-frost').classList.add('clear');
+    document.getElementById('mirror-label').style.display='none';
+  }catch(e){console.warn('Preview denied',e);}
+});
+
+function toggleRLStart(){
+  ringOn=!ringOn;
+  document.getElementById('ringlight-btn').classList.toggle('active',ringOn);
+}
+
+// ── Open fullscreen ───────────────────────────────────
+async function openMirror(){
+  if(previewStream) previewStream.getTracks().forEach(t=>t.stop());
+  try{
+    fullStream=await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:'user',width:{ideal:1280},height:{ideal:720}},audio:false
+    });
+    const vid=document.getElementById('camera-video');
+    vid.srcObject=fullStream;
+    await vid.play();
+    document.getElementById('start-screen').style.display='none';
+    document.getElementById('mirror-screen').style.display='block';
+    applyRL(ringOn);
+    lightTimer   =setInterval(detectLight,900);
+    complTimer   =setInterval(()=>{if(personPresent) cycleCompliment();},5500);
+    presenceTimer=setInterval(detectPresence,750);
+  }catch(err){
+    alert('Camera permission chahiye 📷');
+  }
+}
+
+// ── Close ─────────────────────────────────────────────
+function closeMirror(){
+  if(fullStream) fullStream.getTracks().forEach(t=>t.stop());
+  clearInterval(lightTimer);clearInterval(complTimer);clearInterval(presenceTimer);
+  personPresent=false;autoRing=false;prevPixels=null;
+  hideCompliment();
+  document.getElementById('mirror-screen').style.display='none';
+  document.getElementById('start-screen').style.display='flex';
+  setTimeout(async()=>{
+    try{
+      previewStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'},audio:false});
+      const pv=document.getElementById('preview-video');
+      pv.srcObject=previewStream;await pv.play();
+      pv.classList.add('show');
+      document.getElementById('pill-frost').classList.add('clear');
+      document.getElementById('mirror-label').style.display='none';
+    }catch(e){}
+  },300);
+}
+
+// ── Ring Light ────────────────────────────────────────
+function applyRL(on){
+  ringOn=on;
+  document.getElementById('ring-light-effect').classList.toggle('on',on);
+  document.getElementById('rl-toggle').classList.toggle('active',on);
+}
+function toggleRLMirror(){ autoRing=false; applyRL(!ringOn); }
+
+// ── Light Detection ───────────────────────────────────
+function detectLight(){
+  const vid=document.getElementById('camera-video');
+  if(vid.readyState<2) return;
+  const c=document.createElement('canvas');c.width=64;c.height=64;
+  const cx=c.getContext('2d');cx.drawImage(vid,0,0,64,64);
+  const d=cx.getImageData(0,0,64,64).data;
+  let t=0;
+  for(let i=0;i<d.length;i+=4) t+=(d[i]*0.299+d[i+1]*0.587+d[i+2]*0.114);
+  const pct=Math.round((t/(64*64))/255*100);
+  const dot=document.getElementById('light-dot');
+  const txt=document.getElementById('light-txt');
+  if(pct>50){
+    dot.className='s-dot ok';txt.textContent='Good light ☀️';
+    if(autoRing){autoRing=false;applyRL(false);}
+  }else if(pct>18){
+    dot.className='s-dot warn';txt.textContent='Normal light';
+  }else{
+    dot.className='s-dot warn';txt.textContent='Low light 💡 auto';
+    if(!ringOn){autoRing=true;applyRL(true);}
+  }
+}
+
+// ── Presence Detection ────────────────────────────────
+function detectPresence(){
+  const vid=document.getElementById('camera-video');
+  if(vid.readyState<2) return;
+  const c=document.createElement('canvas');c.width=32;c.height=32;
+  const cx=c.getContext('2d');cx.drawImage(vid,0,0,32,32);
+  const d=cx.getImageData(0,0,32,32).data;
+  // Center brightness
+  let cb=0,n=0;
+  for(let y=8;y<24;y++) for(let x=8;x<24;x++){
+    const i=(y*32+x)*4;
+    cb+=(d[i]*0.299+d[i+1]*0.587+d[i+2]*0.114);n++;
+  }
+  const avg=cb/n;
+  // Motion
+  let motion=0;
+  if(prevPixels) for(let i=0;i<d.length;i+=4){
+    const diff=Math.abs(d[i]-prevPixels[i])+Math.abs(d[i+1]-prevPixels[i+1])+Math.abs(d[i+2]-prevPixels[i+2]);
+    if(diff>18) motion++;
+  }
+  prevPixels=new Uint8ClampedArray(d);
+
+  const dot=document.getElementById('person-dot');
+  const txt=document.getElementById('person-txt');
+  const hasContent=avg>6;
+  const hasMotion=motion>4;
+
+  if(hasContent||hasMotion){
+    dot.className='s-dot on';txt.textContent='Hey gorgeous 💕';
+    if(!personPresent){personPresent=true;setTimeout(showCompliment,700);}
+  }else{
+    dot.className='s-dot';txt.textContent='Step closer...';
+    if(personPresent){personPresent=false;hideCompliment();}
+  }
+}
+
+// ── Compliments ───────────────────────────────────────
+function showCompliment(){
+  if(!personPresent)return;
+  pickCompliment();
+  document.getElementById('compliment-wrap').classList.add('visible');
+}
+function hideCompliment(){
+  document.getElementById('compliment-wrap').classList.remove('visible');
+}
+function pickCompliment(){
+  let idx;
+  do{idx=Math.floor(Math.random()*COMPLIMENTS.length);}while(idx===lastIdx);
+  lastIdx=idx;
+  const box=document.getElementById('compliment-box');
+  box.textContent=COMPLIMENTS[idx];
+  box.classList.remove('pop-in');void box.offsetWidth;box.classList.add('pop-in');
+}
+function cycleCompliment(){if(personPresent)pickCompliment();}
+</script>
+</body>
+</html>
